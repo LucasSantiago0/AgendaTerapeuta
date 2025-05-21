@@ -16,11 +16,11 @@
       text-align: center;
       margin-bottom: 0.5rem;
     }
-    .navegacao, .cadastro-paciente, .cadastro-funcionario, .cadastro-controle {
+    .navegacao {
       text-align: center;
       margin-bottom: 1rem;
     }
-    .navegacao button, .cadastro-paciente button, .cadastro-funcionario button, .cadastro-controle button {
+    .navegacao button, .gestao-btn {
       margin: 0 0.5rem;
       padding: 0.5rem 1rem;
       background-color: #007bff;
@@ -102,142 +102,112 @@
       margin-top: 0.5rem;
       font-size: 0.9rem;
     }
-    .gestao-lista input {
-      padding: 4px;
-      margin-bottom: 10px;
-      border: 1px solid #ccc;
+    .gestao-popup {
+      position: fixed;
+      top: 50px;
+      left: 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      padding: 1rem;
+      z-index: 1000;
+      display: none;
+      width: 300px;
+    }
+    .gestao-popup h3 {
+      margin-top: 0;
+    }
+    .gestao-popup ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    .gestao-popup li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.3rem;
+    }
+    .gestao-popup li button {
+      background: #e53935;
+      color: white;
+      border: none;
       border-radius: 4px;
-      width: 90%;
+      padding: 0 6px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
+  <button class="gestao-btn" onclick="toggleGestao()">⚙️ Gestão</button>
   <h1>Agenda Semanal</h1>
   <div class="navegacao">
-    <button onclick="alterarSemana(-1)">&larr; Semana Anterior</button>
+    <button onclick="alterarSemana(-1)" class="nav">&larr; Semana Anterior</button>
     <span id="intervaloSemana"></span>
-    <button onclick="alterarSemana(1)">Próxima Semana &rarr;</button>
-  </div>
-  <div class="cadastro-paciente">
-    <input type="text" id="novoPaciente" placeholder="Novo paciente" />
-    <button onclick="cadastrarPaciente()">Adicionar Paciente</button>
-  </div>
-  <div class="cadastro-funcionario">
-    <input type="text" id="novoFuncionario" placeholder="Novo funcionário" />
-    <button onclick="cadastrarFuncionario()">Adicionar Funcionário</button>
-  </div>
-  <div class="cadastro-controle">
-    <button onclick="toggleGestao()">🛠️ Gerenciar Funcionários e Pacientes</button>
-  </div>
-  <div id="gestaoContainer" style="display:none; text-align:center; margin: 1rem auto; background:#fff; padding:1rem; border-radius:8px; box-shadow:0 2px 5px rgba(0,0,0,0.1); max-width:500px">
-    <h3>Funcionários</h3>
-    <input id="filtroFuncionario" placeholder="Buscar funcionário..." oninput="renderGestao()" />
-    <ul id="listaFuncionarios" class="gestao-lista"></ul>
-    <h3>Pacientes</h3>
-    <input id="filtroPaciente" placeholder="Buscar paciente..." oninput="renderGestao()" />
-    <ul id="listaPacientes" class="gestao-lista"></ul>
+    <button onclick="alterarSemana(1)" class="nav">Próxima Semana &rarr;</button>
   </div>
   <div class="agenda" id="agenda"></div>
 
+  <div class="gestao-popup" id="popupGestao">
+    <h3>Funcionários</h3>
+    <input id="novoFuncionario" placeholder="Novo funcionário" /><button onclick="adicionarFuncionario()">+</button>
+    <ul id="listaFuncionarios"></ul>
+    <h3>Pacientes</h3>
+    <input id="novoPaciente" placeholder="Novo paciente" /><button onclick="adicionarPaciente()">+</button>
+    <ul id="listaPacientes"></ul>
+  </div>
+
   <script>
-    let funcionarios = JSON.parse(localStorage.getItem('funcionarios')) || ['João', 'Maria', 'Carlos', 'Ana'];
-    let pacientes = JSON.parse(localStorage.getItem('pacientes')) || ['Paciente A', 'Paciente B', 'Paciente C', 'Paciente D'];
+    let funcionarios = ['João', 'Maria', 'Carlos', 'Ana'];
+    let pacientes = ['Paciente A', 'Paciente B', 'Paciente C', 'Paciente D'];
     let dataBase = new Date();
     dataBase.setDate(dataBase.getDate() - dataBase.getDay() + 1);
     const registrosPorData = {};
 
-    function salvarListas() {
-      localStorage.setItem('funcionarios', JSON.stringify(funcionarios));
-      localStorage.setItem('pacientes', JSON.stringify(pacientes));
-    }
-
-    function cadastrarPaciente() {
-      const nome = document.getElementById('novoPaciente').value.trim();
-      if (nome && !pacientes.includes(nome)) {
-        pacientes.push(nome);
-        salvarListas();
-        document.getElementById('novoPaciente').value = '';
-        renderAgenda();
-        renderGestao();
-      }
-    }
-
-    function cadastrarFuncionario() {
-      const nome = document.getElementById('novoFuncionario').value.trim();
-      if (nome && !funcionarios.includes(nome)) {
-        funcionarios.push(nome);
-        salvarListas();
-        document.getElementById('novoFuncionario').value = '';
-        renderAgenda();
-        renderGestao();
-      }
-    }
-
     function toggleGestao() {
-      const cont = document.getElementById('gestaoContainer');
-      cont.style.display = cont.style.display === 'none' ? 'block' : 'none';
+      const popup = document.getElementById('popupGestao');
+      popup.style.display = popup.style.display === 'none' || popup.style.display === '' ? 'block' : 'none';
       renderGestao();
     }
 
     function renderGestao() {
-      const filtroF = document.getElementById('filtroFuncionario').value.toLowerCase();
-      const filtroP = document.getElementById('filtroPaciente').value.toLowerCase();
-
       const listaF = document.getElementById('listaFuncionarios');
       const listaP = document.getElementById('listaPacientes');
-
-      listaF.innerHTML = funcionarios
-        .filter(f => f.toLowerCase().includes(filtroF))
-        .sort()
-        .map((f, i) => `<li>${f} <button onclick="editarFuncionario(${i})">✏️</button> <button onclick="removerFuncionario(${i})">❌</button></li>`).join('');
-
-      listaP.innerHTML = pacientes
-        .filter(p => p.toLowerCase().includes(filtroP))
-        .sort()
-        .map((p, i) => `<li>${p} <button onclick="editarPaciente(${i})">✏️</button> <button onclick="removerPaciente(${i})">❌</button></li>`).join('');
+      listaF.innerHTML = funcionarios.map((f, i) => `<li>${f} <button onclick="removerFuncionario(${i})">x</button></li>`).join('');
+      listaP.innerHTML = pacientes.map((p, i) => `<li>${p} <button onclick="removerPaciente(${i})">x</button></li>`).join('');
     }
 
-    function editarFuncionario(index) {
-      const novoNome = prompt("Editar nome do funcionário:", funcionarios[index]);
-      if (novoNome && novoNome.trim() && !funcionarios.includes(novoNome.trim())) {
-        funcionarios[index] = novoNome.trim();
-        salvarListas();
+    function adicionarFuncionario() {
+      const input = document.getElementById('novoFuncionario');
+      const nome = input.value.trim();
+      if (nome && !funcionarios.includes(nome)) {
+        funcionarios.push(nome);
+        input.value = '';
         renderAgenda();
         renderGestao();
       }
     }
 
-    function editarPaciente(index) {
-      const novoNome = prompt("Editar nome do paciente:", pacientes[index]);
-      if (novoNome && novoNome.trim() && !pacientes.includes(novoNome.trim())) {
-        pacientes[index] = novoNome.trim();
-        salvarListas();
+    function adicionarPaciente() {
+      const input = document.getElementById('novoPaciente');
+      const nome = input.value.trim();
+      if (nome && !pacientes.includes(nome)) {
+        pacientes.push(nome);
+        input.value = '';
         renderAgenda();
         renderGestao();
       }
     }
 
     function removerFuncionario(index) {
-      if (confirm(`Remover funcionário "${funcionarios[index]}"?`)) {
-        funcionarios.splice(index, 1);
-        salvarListas();
-        renderAgenda();
-        renderGestao();
-      }
+      funcionarios.splice(index, 1);
+      renderAgenda();
+      renderGestao();
     }
 
     function removerPaciente(index) {
-      if (confirm(`Remover paciente "${pacientes[index]}"?`)) {
-        pacientes.splice(index, 1);
-        salvarListas();
-        renderAgenda();
-        renderGestao();
-      }
-    }
-
-    function alterarSemana(delta) {
-      dataBase.setDate(dataBase.getDate() + delta * 7);
+      pacientes.splice(index, 1);
       renderAgenda();
+      renderGestao();
     }
 
     function formatarData(d) {
@@ -289,6 +259,11 @@
 
     function concluirAgendamento(dataStr, index) {
       registrosPorData[dataStr][index].concluido = true;
+      renderAgenda();
+    }
+
+    function alterarSemana(delta) {
+      dataBase.setDate(dataBase.getDate() + delta * 7);
       renderAgenda();
     }
 
